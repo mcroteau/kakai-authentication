@@ -1,0 +1,108 @@
+plugins {
+    id 'maven-publish'
+    id 'java-library'
+    id 'signing'
+    id 'java'
+    id 'jacoco'
+}
+
+group 'io.kakai'
+version '1.00'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation "org.jacoco:org.jacoco.core:0.8.7"
+    testImplementation "org.junit.jupiter:junit-jupiter-api:5.8.2"
+    testImplementation "org.junit.jupiter:junit-jupiter-engine:5.8.2"
+}
+
+jacoco {
+    toolVersion = "0.8.7"
+}
+
+task javadocJar(type: Jar) {
+    from javadoc
+}
+
+task sourcesJar(type:Jar){
+    dependsOn(JavaPlugin.CLASSES_TASK_NAME)
+    from(sourceSets["main"].allSource)
+    artifacts {
+        add("archives", sourcesJar)
+    }
+}
+
+task artifact{
+    dependsOn(build)
+    dependsOn(sourcesJar)
+    dependsOn(javadocJar)
+}
+
+task coverage{
+    description = "Runs the unit tests with coverage"
+    dependsOn 'test'
+    dependsOn 'jacocoTestReport'
+}
+
+publishing {
+    repositories {
+        maven {
+            name = "sonatype"
+            setUrl("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/")
+            credentials {
+                username = findProperty("ossh.user")
+                password = findProperty("ossh.pass")
+            }
+        }
+    }
+
+    publications {
+        mavenJava(MavenPublication) {
+            groupId = "io.kakai"
+            artifactId = "kakai-authorization"
+            version = "1.00"
+            from(components["java"])
+        }
+        maven(MavenPublication) {
+            artifact(sourcesJar)
+            artifact(javadocJar)
+            pom {
+                name.set("Kakai Authorization")
+                description.set("Kakai Authorizaiton is an authentication + authorization plugin " +
+                        "for Kaika")
+                url.set("http://github.com/mcroteau/Kakai")
+                licenses {
+                    license {
+                        name.set("MIT license")
+                        url.set("https://opensource.org/licenses/MIT")
+                    }
+                }
+                issueManagement {
+                    system.set("Github")
+                    url.set("https://github.com/mcroteau/Kakai/issues")
+                }
+                scm {
+                    connection.set("https://github.com/mcroteau/Kakai.git")
+                    url.set("https://github.com/mcroteau/Kakai")
+                }
+                developers {
+                    developer {
+                        name.set("Mike Croteau")
+                        email.set("croteau.mike@gmail.com")
+                    }
+                }
+            }
+        }
+    }
+}
+
+signing {
+    def id = findProperty("gpg.id")
+    def key = findProperty("gpg.key")
+    def pass = findProperty("gpg.pass")
+    useInMemoryPgpKeys(id, key, pass)
+    sign(publishing.publications)
+}
